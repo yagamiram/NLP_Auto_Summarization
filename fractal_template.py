@@ -1,8 +1,15 @@
 import nltk
 from nltk.tokenize.punkt import PunktSentenceTokenizer, PunktParameters
 from nltk import FreqDist
-import math
-import re
+from nltk.tokenize import RegexpTokenizer
+from nltk.corpus import stopwords
+
+def preprocess(sentence):
+    sentence = sentence.lower()
+    tokenizer = RegexpTokenizer(r'\w+')
+    tokens = tokenizer.tokenize(sentence)
+    filtered_words = [w for w in tokens if not w in stopwords.words('english')]
+    return " ".join(filtered_words)
 class sentence:
     def __init__(self):
         self.sentence = None
@@ -23,7 +30,7 @@ class paragraph:
 class fractal:
     def __init__(self, text):
         self.paragraphs = []
-        self.weights = FreqDist(nltk.word_tokenize(text))
+        self.weights = FreqDist(nltk.word_tokenize(preprocess(text)))
         self.sentence_keep = []
         self.sentences_sorted = []
 
@@ -43,6 +50,7 @@ class fractalSummary:
         self.stotal = 0 # Total sentences
         self.np_weight = 0
         self.ns_weight = 0
+        self.sentences_keep = []
     def calculate_relative_frequence(self, sentence_token, weights):
         frequency = {}
         for each_word, freq in weights.items():
@@ -54,8 +62,10 @@ class fractalSummary:
         for each_paragraph in self.paragraphs:
             buffer_p = paragraph()
             buffer_p.paragraph = each_paragraph
-            buffer_p.tokens = nltk.word_tokenize(each_paragraph)
-            buffer_p.weights['words'] = FreqDist(nltk.word_tokenize(each_paragraph))
+            buffer_p.tokens = nltk.word_tokenize(preprocess(each_paragraph))
+            print "buffer_p.tokens", buffer_p.tokens
+            buffer_p.weights['words'] = FreqDist(buffer_p.tokens)
+            print "buffer_p.weights['words']", buffer_p.weights['words'].items()
             buffer_p.weights['total'] = {'words':0, 'sentences':0}    
             punkt_param.abbrev_types = set(['dr', 'vs', 'mr', 'mrs', 'prof', 'inc'])
             sentence_splitter = PunktSentenceTokenizer(punkt_param)
@@ -64,12 +74,13 @@ class fractalSummary:
                 self.stotal += 1
                 buffer_s = sentence()
                 buffer_s.sentence = each_sentence
-                buffer_s.tokens = nltk.word_tokenize(each_sentence)
+                buffer_s.tokens = nltk.word_tokenize(preprocess(each_sentence))
                 if len(buffer_s.tokens) > 0:
-                    buffer_s.weights['sentence'] = FreqDist(nltk.word_tokenize(each_sentence))
+                    buffer_s.weights['sentence'] = FreqDist(buffer_s.tokens)
                     buffer_s.weights['paragraph'] = self.calculate_relative_frequence(buffer_s.tokens, buffer_p.weights['words'])
                     buffer_s.weights['document'] = self.calculate_relative_frequence(buffer_s.tokens, self.fractal.weights)
                     buffer_s.weights['total'] = {}
+                    buffer_s.weights['total']['sentence'] = 1
                     buffer_s.weights['total']['paragraph'] = sum(buffer_s.weights['paragraph'].values())
                     buffer_s.weights['total']['document'] = sum(buffer_s.weights['document'].values())
                     self.s_weight += buffer_s.weights['total']['document']
@@ -84,6 +95,7 @@ class fractalSummary:
             each_paragraph.weights['total']['normalized'] = each_paragraph.weights['total']['sentences'] / float(self.s_weight)
             self.np_weight += each_paragraph.weights['total']['normalized']
             each_paragraph.quota = round(self.quota * each_paragraph.weights['total']['normalized'])
+            print self.quota * each_paragraph.weights['total']['normalized']
             quota_sum += each_paragraph.quota
             sentences_sorted = []
             index = 0
@@ -97,18 +109,22 @@ class fractalSummary:
             sentences_sorted = sentences_sorted[:int(each_paragraph.quota)]
             sentences_sorted.sort(key=lambda x:x['index'])
             for each_sen in sentences_sorted:
-                each_paragraph.sentences_keep.append(each_sen['text'])
-            if len(each_paragraph.sentences_keep) > 0:
-                for each_sen in each_paragraph.sentences_keep:
+                self.sentences_keep.append(each_sen['text'])
+        if len(self.sentences_keep) > 0:
+            quota_count = 0
+            for each_sen in self.sentences_keep:
+                if quota_count < self.quota:
                     self.summary.append(each_sen.strip())
+        print quota_sum
 def main():
     f = open("news.txt","r")
-    fs = fractalSummary(f.read(), 6)
+    #print type(f.read())
+    fs = fractalSummary(f.read(), 8)
     fs.fractal_representation()
     fs.normalize()
     print "summary"
     for eac_sen in fs.summary:
         print eac_sen
-
+    #print fs.quota_sum
 if __name__ == "__main__":
     main()
