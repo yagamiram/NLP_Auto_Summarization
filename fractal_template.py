@@ -3,6 +3,7 @@ from nltk.tokenize.punkt import PunktSentenceTokenizer, PunktParameters
 from nltk import FreqDist
 from nltk.tokenize import RegexpTokenizer
 from nltk.corpus import stopwords
+import math
 
 def preprocess(sentence):
     sentence = sentence.lower()
@@ -144,13 +145,58 @@ class WordFrequency:
         structure['weights']['total'] = sum(structure['weights']['words'].values())
         for each_sent in structure['sentences']:
             each_sent['data']['tokens'] = nltk.word_tokenize(preprocess(each_sent['text']))
-            each_sent['data']['weights'] = self.calculate_relative_frequence(each_sent['data']['tokens'], structure['weights']['words'])
+            each_sent['data']['weights'] = {}
+            each_sent['data']['weights']['words'] = self.calculate_relative_frequence(each_sent['data']['tokens'], structure['weights']['words'])
+            each_sent['data']['weights']['total'] = sum(each_sent['data']['weights']['words'].values())
         #structure['ordered'] = structure['sentences'].sort(key=lambda x:x['data']['weights'], reverse=True)
-        structure['ordered'] = sorted(structure['sentences'], key=lambda x:x['data']['weights'], reverse=True)
+        structure['ordered'] = sorted(structure['sentences'], key=lambda x:x['data']['weights']['total'], reverse=True)
         structure_keep = structure['ordered'][:self.quota]
         structure_keep.sort(key=lambda x:x['index'])
         for eac_sen in structure_keep:
             self.summary.append(eac_sen['text'])
+class sinFrequencySummary:
+    def __init__(self, text, quota):
+        self.text = text
+        self.summary = []
+        self.sentenceIndex = 0
+        self.quota = quota
+        self.sentencecount = 0
+    def calculate_relative_frequence(self, sentence_token, weights):
+        frequency = {}
+        for each_word, freq in weights.items():
+            if each_word in sentence_token:
+                frequency[each_word] = freq
+        return frequency
+    def summarize(self):
+        punkt_param = PunktParameters()
+        punkt_param.abbrev_types = set(['dr', 'vs', 'mr', 'mrs', 'prof', 'inc'])
+        sentence_splitter = PunktSentenceTokenizer(punkt_param)
+        sentences = sentence_splitter.tokenize(self.text)
+        structure = {}
+        sentence_objects = []
+        for idx in range(len(sentences)):
+            obj = {'text' : sentences[idx], 'index' : idx , 'data': {}}
+            sentence_objects.append(obj)
+        structure['sentences'] = sentence_objects
+        self.sentencecount = len(structure['sentences'])
+        structure['ordered'] = []
+        structure['weights'] = {'words' : FreqDist(nltk.word_tokenize(preprocess(self.text))), 'total': 0}
+        structure['weights']['total'] = sum(structure['weights']['words'].values())
+        self.sentenceIndex = 0
+        for each_sent in structure['sentences']:
+            each_sent['data']['tokens'] = nltk.word_tokenize(preprocess(each_sent['text']))
+            each_sent['data']['weights'] = {}
+            each_sent['data']['weights']['words'] = self.calculate_relative_frequence(each_sent['data']['tokens'], structure['weights']['words'])
+            each_sent['data']['weights']['total'] = sum(each_sent['data']['weights']['words'].values())
+            each_sent['data']['weights']['sinTransform'] = (1-math.sin(self.sentenceIndex*(math.pi/self.sentencecount)))/2+1
+            each_sent['data']['weights']['total'] *= each_sent['data']['weights']['sinTransform']
+            self.sentenceIndex += 1  
+        structure['ordered'] = sorted(structure['sentences'], key=lambda x:x['data']['weights']['total'], reverse=True)
+        structure_keep = structure['ordered'][:self.quota]
+        structure_keep.sort(key=lambda x:x['index'])
+        for eac_sen in structure_keep:
+            self.summary.append(eac_sen['text'])
+
 def main():
     f = open("news.txt","r")
     #print type(f.read())
@@ -167,6 +213,12 @@ def main():
     wf.summarize()
     print "summary"
     for each_sen in wf.summary:
+        print each_sen
+    print "word frequency"
+    swf = sinFrequencySummary(text, 6)
+    swf.summarize()
+    print "summary"
+    for each_sen in swf.summary:
         print each_sen
 if __name__ == "__main__":
     main()
