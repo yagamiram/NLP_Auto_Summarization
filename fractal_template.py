@@ -64,9 +64,7 @@ class fractalSummary:
             buffer_p = paragraph()
             buffer_p.paragraph = each_paragraph
             buffer_p.tokens = nltk.word_tokenize(preprocess(each_paragraph))
-            print "buffer_p.tokens", buffer_p.tokens
             buffer_p.weights['words'] = FreqDist(buffer_p.tokens)
-            print "buffer_p.weights['words']", buffer_p.weights['words'].items()
             buffer_p.weights['total'] = {'words':0, 'sentences':0}    
             punkt_param.abbrev_types = set(['dr', 'vs', 'mr', 'mrs', 'prof', 'inc'])
             sentence_splitter = PunktSentenceTokenizer(punkt_param)
@@ -96,7 +94,6 @@ class fractalSummary:
             each_paragraph.weights['total']['normalized'] = each_paragraph.weights['total']['sentences'] / float(self.s_weight)
             self.np_weight += each_paragraph.weights['total']['normalized']
             each_paragraph.quota = round(self.quota * each_paragraph.weights['total']['normalized'])
-            print self.quota * each_paragraph.weights['total']['normalized']
             quota_sum += each_paragraph.quota
             sentences_sorted = []
             index = 0
@@ -116,7 +113,6 @@ class fractalSummary:
             for each_sen in self.sentences_keep:
                 if quota_count < self.quota:
                     self.summary.append(each_sen.strip())
-        print quota_sum
 class WordFrequency:
     def __init__(self, text, quota):
         self.text = text
@@ -148,7 +144,6 @@ class WordFrequency:
             each_sent['data']['weights'] = {}
             each_sent['data']['weights']['words'] = self.calculate_relative_frequence(each_sent['data']['tokens'], structure['weights']['words'])
             each_sent['data']['weights']['total'] = sum(each_sent['data']['weights']['words'].values())
-        #structure['ordered'] = structure['sentences'].sort(key=lambda x:x['data']['weights'], reverse=True)
         structure['ordered'] = sorted(structure['sentences'], key=lambda x:x['data']['weights']['total'], reverse=True)
         structure_keep = structure['ordered'][:self.quota]
         structure_keep.sort(key=lambda x:x['index'])
@@ -246,34 +241,34 @@ class sinWordFrequencySummary:
         
 
 def main():
-    f = open("test2.txt","r")
-    #print type(f.read())
+    fn = raw_input("Input file : ")
+    f = open(fn,"r")
     text = f.read()
     fs = fractalSummary(text, 6)
     fs.fractal_representation()
     fs.normalize()
-    print "summary"
+    print "Fractal summary"
     for eac_sen in fs.summary:
         print eac_sen
-    #print fs.quota_sum
-    print "word frequency"
+    print
     wf = WordFrequency(text, 6)
     wf.summarize()
-    print "summary"
+    print "Word Frequency summary"
     for each_sen in wf.summary:
         print each_sen
-    print "Sin frequency"
+    print
+    print "Sin Transform frequency"
     swf = sinFrequencySummary(text, 6)
     swf.summarize()
-    print "summary"
     for each_sen in swf.summary:
         print each_sen
-    print "Sin Word frequency"
+    print
+    print "Sin Word Transform frequency"
     swf = sinWordFrequencySummary(text, 6)
     swf.summarize()
-    print "summary"
     for each_sen in swf.summary:
         print each_sen
+    print
 
 if __name__ == "__main__":
     main()
